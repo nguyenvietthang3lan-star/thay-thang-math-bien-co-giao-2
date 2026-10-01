@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Biểu đồ Venn – Thầy Thăng Toán</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--text:#1d2433;--muted:#5b6478;--a:#4a7cf0;--b:#f0a14a;--pen:#e0245e;--ok:#12803c;--okbg:#e3f6ea;--no:#b3261e;--nobg:#fde8e6;--line:#2b3347;--btn:#2b5fd9;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161f;--card:#1b2130;--text:#e9edf6;--muted:#9aa5bd;--line:#c9d2e6;--okbg:#12301f;--nobg:#3a1815;--ok:#6fdc9a;--no:#ff9a92;--btn:#5b8cff}}
+:root[data-theme="dark"]{--bg:#12161f;--card:#1b2130;--text:#e9edf6;--muted:#9aa5bd;--line:#c9d2e6;--okbg:#12301f;--nobg:#3a1815;--ok:#6fdc9a;--no:#ff9a92;--btn:#5b8cff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+.wrap{max-width:820px;margin:0 auto;padding:16px}
+header{text-align:center;margin-bottom:12px}
+header .brand{font-weight:700;color:var(--btn);letter-spacing:.3px}
+h1{font-size:clamp(1.2rem,4.5vw,1.7rem);margin:4px 0}
+.task{background:var(--card);border-radius:12px;padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.task b{color:var(--pen)}
+.board{position:relative;width:100%;aspect-ratio:700/440;background:var(--card);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.12);overflow:hidden}
+.board svg,.board canvas{position:absolute;inset:0;width:100%;height:100%}
+canvas{touch-action:auto;cursor:default}
+canvas.on{touch-action:none;cursor:crosshair}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button{flex:1 1 120px;font:inherit;font-weight:600;padding:12px 14px;border:0;border-radius:10px;background:var(--btn);color:#fff;cursor:pointer}
+button.sec{background:var(--card);color:var(--text);border:1.5px solid var(--line)}
+button.pen.active{background:var(--pen);color:#fff;border-color:var(--pen)}
+#res{min-height:52px;padding:12px 14px;border-radius:10px;font-weight:600;display:none}
+#res.ok{display:block;background:var(--okbg);color:var(--ok)}
+#res.no{display:block;background:var(--nobg);color:var(--no)}
+#res.info{display:block;background:var(--card);color:var(--muted)}
+footer{text-align:center;color:var(--muted);font-size:.85rem;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand">Thầy Thăng Toán</div>
+  <h1>Biểu đồ Venn: Giao và Hợp của hai biến cố</h1>
+</header>
+<div class="task">
+  <b>Đề bài:</b> Bấm <b>"Bật bút vẽ"</b>, rồi dùng bút <b>khoanh hoặc tô</b> phần biểu diễn <b>giao của hai biến cố A và B</b> (A ∩ B). Xong bấm <b>"Kiểm tra"</b>.
+</div>
+<div class="board" id="board">
+  <svg viewBox="0 0 700 440" aria-label="Biểu đồ Venn">
+    <rect x="10" y="10" width="680" height="420" rx="8" fill="none" stroke="var(--line)" stroke-width="2.5"/>
+    <text x="28" y="38" font-size="22" fill="var(--line)" font-style="italic">Ω</text>
+    <circle cx="270" cy="220" r="130" fill="var(--a)" fill-opacity=".25" stroke="var(--a)" stroke-width="3"/>
+    <circle cx="430" cy="220" r="130" fill="var(--b)" fill-opacity=".25" stroke="var(--b)" stroke-width="3"/>
+    <text x="195" y="232" font-size="40" font-weight="700" fill="var(--a)" text-anchor="middle">A</text>
+    <text x="505" y="232" font-size="40" font-weight="700" fill="var(--b)" text-anchor="middle">B</text>
+  </svg>
+  <canvas id="cv" width="700" height="440"></canvas>
+</div>
+<div class="bar">
+  <button class="pen sec" id="penBtn">✏️ Bật bút vẽ</button>
+  <button class="sec" id="clearBtn">🗑️ Xóa nét vẽ</button>
+  <button id="checkBtn">✔ Kiểm tra</button>
+</div>
+<div id="res"></div>
+<footer>Thầy Thăng Toán</footer>
+</div>
+<script>
+(function(){
+var W=700,H=440,A={x:270,y:220},B={x:430,y:220},R=130;
+var cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+var penBtn=document.getElementById('penBtn'),res=document.getElementById('res');
+var strokes=[],cur=null,penOn=false;
+function setRes(c,t){res.className=c;res.textContent=t}
+function pos(e){var r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+function redraw(){
+  ctx.clearRect(0,0,W,H);ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=6;
+  ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--pen').trim()||'#e0245e';
+  strokes.forEach(function(s){ctx.beginPath();ctx.moveTo(s[0].x,s[0].y);
+    if(s.length==1)ctx.lineTo(s[0].x+.1,s[0].y);
+    s.forEach(function(p){ctx.lineTo(p.x,p.y)});ctx.stroke()});
+}
+penBtn.onclick=function(){
+  penOn=!penOn;cv.classList.toggle('on',penOn);penBtn.classList.toggle('active',penOn);
+  penBtn.textContent=penOn?'✏️ Tắt bút vẽ':'✏️ Bật bút vẽ';
+  if(penOn)setRes('info','Bút đã bật. Hãy khoanh hoặc tô phần cần tìm.');else setRes('','');
+};
+cv.addEventListener('pointerdown',function(e){
+  if(!penOn)return;e.preventDefault();cv.setPointerCapture(e.pointerId);
+  cur=[pos(e)];strokes.push(cur);redraw();setRes('','');
+});
+cv.addEventListener('pointermove',function(e){
+  if(!cur)return;e.preventDefault();cur.push(pos(e));redraw();
+});
+function end(){cur=null}
+cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+document.getElementById('clearBtn').onclick=function(){strokes=[];cur=null;redraw();setRes('','')};
+
+function filledMask(){
+  // vẽ nét dày để bịt khe hở, sau đó tìm vùng khép kín bằng loang từ biên
+  var t=document.createElement('canvas');t.width=W;t.height=H;var c=t.getContext('2d');
+  c.lineCap='round';c.lineJoin='round';c.lineWidth=22;c.strokeStyle='#000';
+  strokes.forEach(function(s){c.beginPath();c.moveTo(s[0].x,s[0].y);
+    if(s.length==1)c.lineTo(s[0].x+.1,s[0].y);
+    s.forEach(function(p){c.lineTo(p.x,p.y)});c.stroke()});
+  var d=c.getImageData(0,0,W,H).data,n=W*H,drawn=new Uint8Array(n),out=new Uint8Array(n),i;
+  for(i=0;i<n;i++)drawn[i]=d[i*4+3]>40?1:0;
+  var st=[];
+  function push(x,y){var k=y*W+x;if(!drawn[k]&&!out[k]){out[k]=1;st.push(k)}}
+  for(i=0;i<W;i++){push(i,0);push(i,H-1)}
+  for(i=0;i<H;i++){push(0,i);push(W-1,i)}
+  while(st.length){var k=st.pop(),x=k%W,y=(k-x)/W;
+    if(x>0)push(x-1,y);if(x<W-1)push(x+1,y);if(y>0)push(x,y-1);if(y<H-1)push(x,y+1)}
+  var f=new Uint8Array(n);for(i=0;i<n;i++)f[i]=out[i]?0:1;
+  return f;
+}
+function check(){
+  if(!strokes.length){setRes('info','Em hãy bật bút và vẽ lên biểu đồ trước nhé.');return}
+  var f=filledMask(),m=18,cnt={I:[0,0],A:[0,0],B:[0,0],O:[0,0]};
+  for(var y=16;y<H-16;y+=4)for(var x=16;x<W-16;x+=4){
+    var dA=Math.hypot(x-A.x,y-A.y)-R,dB=Math.hypot(x-B.x,y-B.y)-R,key=null;
+    if(dA<-m&&dB<-m)key='I';else if(dA<-m&&dB>m)key='A';else if(dB<-m&&dA>m)key='B';else if(dA>m&&dB>m)key='O';
+    if(key){cnt[key][1]++;if(f[y*W+x])cnt[key][0]++}
+  }
+  var v={};for(var k in cnt)v[k]=cnt[k][0]/cnt[k][1];
+  if(v.I>=.7&&v.A<=.2&&v.B<=.2&&v.O<=.1)setRes('ok','✅ Chính xác! Đó là GIAO của hai biến cố A và B (A ∩ B).');
+  else if(v.I>=.7&&v.A>=.7&&v.B>=.7&&v.O<=.25)setRes('no','❌ Sai rồi! Đó là HỢP của hai biến cố A và B (A ∪ B).');
+  else setRes('no','❌ Sai rồi!');
+}
+document.getElementById('checkBtn').onclick=check;
+if(window.matchMedia)window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',redraw);
+})();
+</script>
+</body>
+</html>
